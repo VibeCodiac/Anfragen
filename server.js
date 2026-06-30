@@ -7,8 +7,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'geheim123';
 
-const DATA_DIR = path.join(__dirname, 'data');
-const UPLOAD_DIR = path.join(__dirname, 'uploads');
+const DATA_DIR = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'data') : path.join(__dirname, 'data');
+const UPLOAD_DIR = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'uploads') : path.join(__dirname, 'uploads');
 const EVENT_FILE = path.join(DATA_DIR, 'event.json');
 const RESPONSES_FILE = path.join(DATA_DIR, 'responses.json');
 
