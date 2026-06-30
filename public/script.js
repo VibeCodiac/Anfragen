@@ -1,5 +1,12 @@
 const ORGANIZER_NAME = 'Stephan';
 
+const gateCard = document.getElementById('gate-card');
+const gateInput = document.getElementById('gate-input');
+const gateBtn = document.getElementById('gate-btn');
+const gateStatus = document.getElementById('gate-status');
+const mainContent = document.getElementById('main-content');
+const footerSignature = document.getElementById('footer-signature');
+
 const photoWrap = document.getElementById('photo-wrap');
 const nameEl = document.getElementById('name');
 const dateEl = document.getElementById('date');
@@ -18,9 +25,96 @@ const popupText = document.getElementById('popup-text');
 const popupAddBtn = document.getElementById('popup-add-btn');
 const popupCloseBtn = document.getElementById('popup-close-btn');
 
+const wheelBtn = document.getElementById('wheel-btn');
+const wheelOverlay = document.getElementById('wheel-overlay');
+const wheelResult = document.getElementById('wheel-result');
+const wheelLabel = document.getElementById('wheel-label');
+const wheelSpinBtn = document.getElementById('wheel-spin-btn');
+const wheelCloseBtn = document.getElementById('wheel-close-btn');
+
 let answer = null;
 let eventDateISO = null;
 let lastSubmittedISO = null;
+
+const ACTIVITIES = [
+  { emoji: '🚲', label: 'Fahrrad fahren' },
+  { emoji: '🍺', label: 'Ein Bier trinken' },
+  { emoji: '🎬', label: 'Kino' },
+  { emoji: '🍕', label: 'Pizza essen' },
+  { emoji: '⚽', label: 'Fußball spielen' },
+  { emoji: '🏊', label: 'Schwimmen' },
+  { emoji: '🎳', label: 'Bowling' },
+  { emoji: '🎮', label: 'Zocken' },
+  { emoji: '🚶', label: 'Spazieren gehen' },
+  { emoji: '☕', label: 'Café-Besuch' },
+  { emoji: '🍽️', label: 'Essen gehen' },
+  { emoji: '🎤', label: 'Karaoke' },
+  { emoji: '🏖️', label: 'An den Strand' },
+  { emoji: '🌳', label: 'Picknick' },
+  { emoji: '🧗', label: 'Klettern' },
+  { emoji: '🎨', label: 'Kreativ werden' },
+  { emoji: '🍳', label: 'Zusammen kochen' },
+  { emoji: '🛍️', label: 'Shoppen' },
+  { emoji: '🎲', label: 'Spieleabend' },
+  { emoji: '☀️', label: 'Sonnen' }
+];
+
+// ---------- Zugangscode ----------
+
+async function checkAccess() {
+  const code = sessionStorage.getItem('accessCode');
+  if (code) {
+    const ok = await verifyCode(code);
+    if (ok) {
+      showMainContent();
+      return;
+    }
+  }
+}
+
+async function verifyCode(code) {
+  try {
+    const res = await fetch('/api/verify-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const data = await res.json();
+    return !!data.valid;
+  } catch {
+    return false;
+  }
+}
+
+function showMainContent() {
+  gateCard.style.display = 'none';
+  mainContent.style.display = 'block';
+  footerSignature.style.display = 'block';
+  loadEvent();
+  loadResponses();
+}
+
+gateBtn.addEventListener('click', async () => {
+  const code = gateInput.value.trim();
+  if (!code) return;
+  gateBtn.disabled = true;
+  gateBtn.textContent = 'Prüfe…';
+
+  const ok = await verifyCode(code);
+
+  gateBtn.disabled = false;
+  gateBtn.textContent = 'Bestätigen';
+
+  if (ok) {
+    sessionStorage.setItem('accessCode', code);
+    showMainContent();
+  } else {
+    gateStatus.textContent = '❌ Leider falsch, versuch es nochmal.';
+    gateStatus.className = 'status show err';
+  }
+});
+
+// ---------- Datum/Kalender ----------
 
 function formatDateLabel(dateTimeLocal) {
   if (!dateTimeLocal) return '';
@@ -35,7 +129,7 @@ function pad(n) { return String(n).padStart(2, '0'); }
 function downloadICS({ title, dateTimeLocal, notes }) {
   if (!dateTimeLocal) return;
   const start = new Date(dateTimeLocal);
-  const end = new Date(start.getTime() + 60 * 60 * 1000); // +1 Stunde Standarddauer
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
 
   function fmt(d) {
     return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
@@ -186,5 +280,39 @@ popupOverlay.addEventListener('click', (e) => {
   if (e.target === popupOverlay) popupOverlay.classList.remove('show');
 });
 
-loadEvent();
-loadResponses();
+// ---------- Glücksrad ----------
+
+function spinWheel() {
+  wheelResult.classList.add('spinning');
+  wheelLabel.textContent = '';
+  wheelSpinBtn.disabled = true;
+
+  let ticks = 0;
+  const totalTicks = 18;
+  const interval = setInterval(() => {
+    const random = ACTIVITIES[Math.floor(Math.random() * ACTIVITIES.length)];
+    wheelResult.textContent = random.emoji;
+    ticks++;
+    if (ticks >= totalTicks) {
+      clearInterval(interval);
+      const final = ACTIVITIES[Math.floor(Math.random() * ACTIVITIES.length)];
+      wheelResult.textContent = final.emoji;
+      wheelLabel.textContent = final.label;
+      wheelResult.classList.remove('spinning');
+      wheelSpinBtn.disabled = false;
+    }
+  }, 90);
+}
+
+wheelBtn.addEventListener('click', () => {
+  wheelOverlay.classList.add('show');
+  spinWheel();
+});
+
+wheelSpinBtn.addEventListener('click', spinWheel);
+wheelCloseBtn.addEventListener('click', () => wheelOverlay.classList.remove('show'));
+wheelOverlay.addEventListener('click', (e) => {
+  if (e.target === wheelOverlay) wheelOverlay.classList.remove('show');
+});
+
+checkAccess();
