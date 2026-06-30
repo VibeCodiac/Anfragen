@@ -7,17 +7,28 @@ const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'geheim123';
 
 // --- Firebase Admin SDK initialisieren ---
+// Der komplette Service-Account-Schlüssel wird Base64-codiert als eine einzige
+// Umgebungsvariable übergeben - das vermeidet kaputte Zeilenumbrüche beim Kopieren.
+const rawBase64 = (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 || '').trim();
+console.log('FIREBASE_SERVICE_ACCOUNT_BASE64 Länge:', rawBase64.length);
+
+const serviceAccountJson = Buffer.from(rawBase64, 'base64').toString('utf8');
+
+let serviceAccount;
+try {
+  serviceAccount = JSON.parse(serviceAccountJson);
+  console.log('JSON geparst. Enthaltene Keys:', Object.keys(serviceAccount));
+  console.log('project_id vorhanden:', !!serviceAccount.project_id);
+} catch (e) {
+  console.error('FIREBASE_SERVICE_ACCOUNT_BASE64 konnte nicht als JSON gelesen werden.');
+  console.error('Erste 80 Zeichen des decodierten Inhalts:', serviceAccountJson.slice(0, 80));
+  throw e;
+}
+
 admin.initializeApp({
-  credential: admin.credential.cert({
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n')
-  })
+  credential: admin.credential.cert(serviceAccount)
 });
 
-const db = admin.firestore();
-const eventDoc = db.collection('app').doc('event');
-const responsesCollection = db.collection('responses');
 
 // Foto wird im Arbeitsspeicher gehalten (nicht auf Festplatte) und als Base64 in Firestore gespeichert
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
