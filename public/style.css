@@ -304,3 +304,10 @@ footer.admin-link a {
   50% { transform: scale(1.15) rotate(8deg); }
   100% { transform: scale(1) rotate(0deg); }
 }
+.big-input {
+  font-size: 2.2rem;
+  text-align: center;
+  padding: 20px 14px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
