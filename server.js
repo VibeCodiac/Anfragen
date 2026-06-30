@@ -29,9 +29,12 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
 
+const db = admin.firestore();
+const eventDoc = db.collection('app').doc('event');
+const responsesCollection = db.collection('responses');
 
 // Foto wird im Arbeitsspeicher gehalten (nicht auf Festplatte) und als Base64 in Firestore gespeichert
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 
 app.use(express.json());
 app.use(express.static(require('path').join(__dirname, 'public')));
@@ -74,6 +77,21 @@ app.post('/api/respond', async (req, res) => {
     };
 
     const ref = await responsesCollection.add(entry);
+
+    // Push-Benachrichtigung an den Organisator schicken (falls eingerichtet)
+    if (process.env.NTFY_TOPIC) {
+      const summary = entry.answer === 'ja'
+        ? 'Ja 🎉'
+        : `Nein${entry.alternative ? ' – Alternative: ' + entry.alternative : ''}`;
+      const body = entry.message ? `${summary}\n💬 ${entry.message}` : summary;
+
+      fetch(`https://ntfy.sh/${process.env.NTFY_TOPIC}`, {
+        method: 'POST',
+        headers: { 'Title': 'Neue Antwort auf deine Einladung!' },
+        body
+      }).catch(err => console.error('ntfy-Benachrichtigung fehlgeschlagen:', err));
+    }
+
     res.json({ success: true, entry: { id: ref.id, ...entry } });
   } catch (e) {
     console.error(e);
@@ -127,11 +145,17 @@ app.post('/api/admin/upload', requireAdmin, upload.single('photo'), async (req, 
     await eventDoc.set(updated, { merge: true });
     res.json({ success: true, event: updated });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Fehler beim Speichern' });
+    console.error('Fehler in /api/admin/upload:', e);
+    res.status(500).json({ error: e.message || 'Fehler beim Speichern' });
   }
 });
 
 app.listen(PORT, () => {
   console.log(`Server läuft auf Port ${PORT}`);
+});
+
+// Globaler Fehler-Handler (z. B. wenn eine Datei zu groß ist)
+app.use((err, req, res, next) => {
+  console.error('Unerwarteter Fehler:', err);
+  res.status(500).json({ error: err.message || 'Unbekannter Serverfehler' });
 });
