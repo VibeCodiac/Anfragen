@@ -1,56 +1,30 @@
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
-const path = require('path');
+const admin = require('firebase-admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'geheim123';
 
-const DATA_DIR = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'data') : path.join(__dirname, 'data');
-const UPLOAD_DIR = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'uploads') : path.join(__dirname, 'uploads');
-const EVENT_FILE = path.join(DATA_DIR, 'event.json');
-const RESPONSES_FILE = path.join(DATA_DIR, 'responses.json');
-
-// Ordner sicherstellen
-[DATA_DIR, UPLOAD_DIR].forEach(dir => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+// --- Firebase Admin SDK initialisieren ---
+admin.initializeApp({
+  credential: admin.credential.cert({
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n')
+  })
 });
 
-// Default-Event anlegen, falls noch nicht vorhanden
-if (!fs.existsSync(EVENT_FILE)) {
-  fs.writeFileSync(EVENT_FILE, JSON.stringify({
-    name: 'Du',
-    dateISO: '',
-    photo: null
-  }, null, 2));
-}
-if (!fs.existsSync(RESPONSES_FILE)) {
-  fs.writeFileSync(RESPONSES_FILE, JSON.stringify([], null, 2));
-}
+const db = admin.firestore();
+const eventDoc = db.collection('app').doc('event');
+const responsesCollection = db.collection('responses');
 
-function readJSON(file) {
-  return JSON.parse(fs.readFileSync(file, 'utf-8'));
-}
-function writeJSON(file, data) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2));
-}
-
-// Multer für Foto-Upload
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, 'photo' + ext);
-  }
-});
-const upload = multer({ storage });
+// Foto wird im Arbeitsspeicher gehalten (nicht auf Festplatte) und als Base64 in Firestore gespeichert
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
 
 app.use(express.json());
-app.use('/uploads', express.static(UPLOAD_DIR));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(require('path').join(__dirname, 'public')));
 
-// Kleine Middleware für Admin-Passwortschutz
 function requireAdmin(req, res, next) {
   const pw = req.headers['x-admin-password'] || req.body.password || req.query.password;
   if (pw !== ADMIN_PASSWORD) {
@@ -61,67 +35,92 @@ function requireAdmin(req, res, next) {
 
 // ---------- Öffentliche Routen ----------
 
-// Aktuelles Event holen (Name, Datum, Foto)
-app.get('/api/event', (req, res) => {
-  const event = readJSON(EVENT_FILE);
-  res.json(event);
-});
-
-// Antwort abschicken (Ja/Nein, Alternative, Gruß)
-app.post('/api/respond', (req, res) => {
-  const { answer, alternative, alternativeISO, message } = req.body;
-
-  if (!answer || (answer !== 'ja' && answer !== 'nein')) {
-    return res.status(400).json({ error: 'Ungültige Antwort' });
+app.get('/api/event', async (req, res) => {
+  try {
+    const snap = await eventDoc.get();
+    const data = snap.exists ? snap.data() : { name: 'Du', dateISO: '', photo: null };
+    res.json(data);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Fehler beim Laden' });
   }
-
-  const responses = readJSON(RESPONSES_FILE);
-  const entry = {
-    id: Date.now(),
-    answer,
-    alternative: answer === 'nein' ? (alternative || '').trim() : null,
-    alternativeISO: answer === 'nein' ? (alternativeISO || null) : null,
-    message: (message || '').trim(),
-    createdAt: new Date().toISOString()
-  };
-  responses.push(entry);
-  writeJSON(RESPONSES_FILE, responses);
-
-  res.json({ success: true, entry });
 });
 
-// Alle Antworten öffentlich lesbar (damit Alternativen auf der Seite sichtbar sind)
-app.get('/api/responses', (req, res) => {
-  const responses = readJSON(RESPONSES_FILE);
-  res.json(responses);
+app.post('/api/respond', async (req, res) => {
+  try {
+    const { answer, alternative, alternativeISO, message } = req.body;
+
+    if (!answer || (answer !== 'ja' && answer !== 'nein')) {
+      return res.status(400).json({ error: 'Ungültige Antwort' });
+    }
+
+    const entry = {
+      answer,
+      alternative: answer === 'nein' ? (alternative || '').trim() : null,
+      alternativeISO: answer === 'nein' ? (alternativeISO || null) : null,
+      message: (message || '').trim(),
+      createdAt: new Date().toISOString()
+    };
+
+    const ref = await responsesCollection.add(entry);
+    res.json({ success: true, entry: { id: ref.id, ...entry } });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Fehler beim Speichern' });
+  }
+});
+
+app.get('/api/responses', async (req, res) => {
+  try {
+    const snap = await responsesCollection.orderBy('createdAt', 'asc').get();
+    const responses = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json(responses);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Fehler beim Laden' });
+  }
 });
 
 // ---------- Admin-Routen (Passwort nötig) ----------
 
-// Login-Check
 app.post('/api/admin/login', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
 
-// Alles zurücksetzen (Antworten löschen)
-app.post('/api/admin/reset', requireAdmin, (req, res) => {
-  writeJSON(RESPONSES_FILE, []);
-  res.json({ success: true });
+app.post('/api/admin/reset', requireAdmin, async (req, res) => {
+  try {
+    const snap = await responsesCollection.get();
+    const batch = db.batch();
+    snap.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+    res.json({ success: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Fehler beim Zurücksetzen' });
+  }
 });
 
-// Foto + Name + Datum aktualisieren
-app.post('/api/admin/upload', requireAdmin, upload.single('photo'), (req, res) => {
-  const event = readJSON(EVENT_FILE);
+app.post('/api/admin/upload', requireAdmin, upload.single('photo'), async (req, res) => {
+  try {
+    const snap = await eventDoc.get();
+    const current = snap.exists ? snap.data() : {};
+    const updated = { ...current };
 
-  if (req.body.name) event.name = req.body.name;
-  if (req.body.dateISO) event.dateISO = req.body.dateISO;
-  if (req.file) event.photo = '/uploads/' + req.file.filename + '?t=' + Date.now();
+    if (req.body.name) updated.name = req.body.name;
+    if (req.body.dateISO) updated.dateISO = req.body.dateISO;
+    if (req.file) {
+      const base64 = req.file.buffer.toString('base64');
+      updated.photo = `data:${req.file.mimetype};base64,${base64}`;
+    }
 
-  writeJSON(EVENT_FILE, event);
-  res.json({ success: true, event });
+    await eventDoc.set(updated, { merge: true });
+    res.json({ success: true, event: updated });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Fehler beim Speichern' });
+  }
 });
 
 app.listen(PORT, () => {
-  console.log(`Server läuft auf http://localhost:${PORT}`);
-  console.log(`Admin-Passwort: ${ADMIN_PASSWORD} (per ADMIN_PASSWORD env var änderbar)`);
+  console.log(`Server läuft auf Port ${PORT}`);
 });
