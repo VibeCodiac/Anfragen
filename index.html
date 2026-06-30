@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lass uns was machen!</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="top-bar"></div>
+<div class="icon-row">🍺 ☀️ 🚲 🎉</div>
+
+<div class="card">
+  <div class="photo-wrap" id="photo-wrap">
+    <span class="placeholder">📷</span>
+  </div>
+
+  <h1 id="headline">Hey <span id="name">…</span>! Lass uns mal wieder was machen.</h1>
+  <p class="sub">Passt dir <strong id="date">…</strong>?</p>
+
+  <div class="toggle">
+    <button id="btn-ja">Ja 🎉</button>
+    <button id="btn-nein">Nein</button>
+  </div>
+
+  <div class="alt-box" id="alt-box">
+    <label for="alt-date">Wann passt es dir stattdessen?</label>
+    <input type="date" id="alt-date" />
+  </div>
+
+  <label for="msg">Gruß da lassen</label>
+  <textarea id="msg"></textarea>
+
+  <button class="submit-btn" id="submit-btn" disabled>Antwort senden</button>
+
+  <div class="status" id="status"></div>
+
+  <div class="recent" id="recent-box" style="display:none;">
+    <h3>Bisherige Rückmeldungen</h3>
+    <div class="responses-list" id="responses-list"></div>
+  </div>
+</div>
+
+<footer class="admin-link">
+  <p class="signature">LG, Stephan</p>
+  <a href="admin.html">Admin-Bereich</a>
+</footer>
+
+<!-- Kalender-Popup -->
+<div class="popup-overlay" id="popup-overlay">
+  <div class="popup-box">
+    <div class="emoji">📅</div>
+    <h2>Termin im Kalender speichern?</h2>
+    <p id="popup-text"></p>
+    <button class="submit-btn" id="popup-add-btn">Zum Kalender hinzufügen</button>
+    <button class="submit-btn btn-outline" id="popup-close-btn">Schließen</button>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
