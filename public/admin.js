@@ -98,27 +98,58 @@ async function loadCurrentEvent() {
   upDate.value = ev.dateISO || '';
 }
 
+function resizeImage(file, maxWidth = 1000, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = (e) => { img.src = e.target.result; };
+    reader.onerror = reject;
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => resolve(new File([blob], file.name, { type: 'image/jpeg' })),
+        'image/jpeg',
+        quality
+      );
+    };
+    img.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 uploadBtn.addEventListener('click', async () => {
   const formData = new FormData();
   formData.append('password', adminPassword);
   if (upName.value) formData.append('name', upName.value);
   if (upDate.value) formData.append('dateISO', upDate.value);
-  if (upPhoto.files[0]) formData.append('photo', upPhoto.files[0]);
 
   uploadBtn.disabled = true;
   uploadBtn.textContent = 'Speichert…';
 
   try {
+    if (upPhoto.files[0]) {
+      const resized = await resizeImage(upPhoto.files[0]);
+      formData.append('photo', resized);
+    }
+
     const res = await fetch('/api/admin/upload', {
       method: 'POST',
       headers: { 'x-admin-password': adminPassword },
       body: formData
     });
-    if (!res.ok) throw new Error();
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || 'Unbekannter Fehler');
+    }
     uploadStatus.textContent = '✅ Gespeichert!';
     uploadStatus.className = 'status show ok';
-  } catch {
-    uploadStatus.textContent = '❌ Fehler beim Speichern';
+  } catch (err) {
+    uploadStatus.textContent = `❌ Fehler beim Speichern: ${err.message}`;
     uploadStatus.className = 'status show err';
   } finally {
     uploadBtn.disabled = false;
