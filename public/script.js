@@ -22,18 +22,25 @@ let answer = null;
 let eventDateISO = null;
 let lastSubmittedISO = null;
 
-function formatDateLabel(dateISO) {
-  if (!dateISO) return '';
-  const d = new Date(dateISO + 'T00:00:00');
-  return d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+function formatDateLabel(dateTimeLocal) {
+  if (!dateTimeLocal) return '';
+  const d = new Date(dateTimeLocal);
+  const datePart = d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+  const timePart = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  return `${datePart} um ${timePart} Uhr`;
 }
 
-function downloadICS({ title, dateISO, notes }) {
-  if (!dateISO) return;
-  const d = dateISO.replace(/-/g, '');
-  const next = new Date(dateISO);
-  next.setDate(next.getDate() + 1);
-  const dEnd = next.toISOString().slice(0, 10).replace(/-/g, '');
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function downloadICS({ title, dateTimeLocal, notes }) {
+  if (!dateTimeLocal) return;
+  const start = new Date(dateTimeLocal);
+  const end = new Date(start.getTime() + 60 * 60 * 1000); // +1 Stunde Standarddauer
+
+  function fmt(d) {
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+  }
+
   const stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 
   const ics = [
@@ -44,8 +51,8 @@ function downloadICS({ title, dateISO, notes }) {
     'BEGIN:VEVENT',
     `UID:${Date.now()}@lass-uns-was-machen`,
     `DTSTAMP:${stamp}`,
-    `DTSTART;VALUE=DATE:${d}`,
-    `DTEND;VALUE=DATE:${dEnd}`,
+    `DTSTART:${fmt(start)}`,
+    `DTEND:${fmt(end)}`,
     `SUMMARY:${title}`,
     notes ? `DESCRIPTION:${notes.replace(/\n/g, '\\n')}` : '',
     'END:VEVENT',
@@ -168,7 +175,7 @@ function openCalendarPopup(dateISO) {
 popupAddBtn.addEventListener('click', () => {
   downloadICS({
     title: `Treffen mit ${ORGANIZER_NAME}`,
-    dateISO: lastSubmittedISO,
+    dateTimeLocal: lastSubmittedISO,
     notes: ''
   });
   popupOverlay.classList.remove('show');
