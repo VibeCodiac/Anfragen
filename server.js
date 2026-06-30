@@ -1,14 +1,12 @@
 const express = require('express');
 const multer = require('multer');
 const admin = require('firebase-admin');
+const https = require('https');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'geheim123';
 
-// --- Firebase Admin SDK initialisieren ---
-// Der komplette Service-Account-Schlüssel wird Base64-codiert als eine einzige
-// Umgebungsvariable übergeben - das vermeidet kaputte Zeilenumbrüche beim Kopieren.
 const rawBase64 = (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 || '').trim();
 console.log('FIREBASE_SERVICE_ACCOUNT_BASE64 Länge:', rawBase64.length);
 
@@ -33,7 +31,6 @@ const db = admin.firestore();
 const eventDoc = db.collection('app').doc('event');
 const responsesCollection = db.collection('responses');
 
-// Foto wird im Arbeitsspeicher gehalten (nicht auf Festplatte) und als Base64 in Firestore gespeichert
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 
 app.use(express.json());
@@ -47,13 +44,40 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+function sendPush(topic, title, body) {
+  return new Promise((resolve, reject) => {
+    const bodyBuffer = Buffer.from(body, 'utf8');
+    const options = {
+      hostname: 'ntfy.sh',
+      port: 443,
+      path: '/' + topic,
+      method: 'POST',
+      headers: {
+        'Title': title,
+        'Content-Type': 'text/plain',
+        'Content-Length': bodyBuffer.length
+      }
+    };
+    const req = https.request(options, (res) => {
+      console.log('ntfy Status:', res.statusCode);
+      resolve(res.statusCode);
+    });
+    req.on('error', (e) => {
+      console.error('ntfy Fehler:', e.message);
+      reject(e);
+    });
+    req.write(bodyBuffer);
+    req.end();
+  });
+}
+
 // ---------- Öffentliche Routen ----------
 
 app.get('/api/event', async (req, res) => {
   try {
     const snap = await eventDoc.get();
     const data = snap.exists ? snap.data() : { name: 'Du', dateISO: '', photo: null };
-    const { accessCode, ...publicData } = data; // Zugangscode nie öffentlich mitschicken
+    const { accessCode, ...publicData } = data;
     res.json(publicData);
   } catch (e) {
     console.error(e);
@@ -67,12 +91,9 @@ app.post('/api/verify-code', async (req, res) => {
     const snap = await eventDoc.get();
     const data = snap.exists ? snap.data() : {};
     const correct = data.accessCode;
-
     if (correct === undefined || correct === null || correct === '') {
-      // Kein Code gesetzt -> jeder darf rein
       return res.json({ valid: true });
     }
-
     const valid = String(code).trim() === String(correct).trim();
     res.json({ valid });
   } catch (e) {
@@ -94,7 +115,7 @@ app.get('/api/admin/event', requireAdmin, async (req, res) => {
 
 app.post('/api/respond', async (req, res) => {
   try {
-    const { answer, alternative, alternativeISO, message } = req.body;
+    const { answer, alternative, alternativeISO, message, activity } = req.body;
 
     if (!answer || (answer !== 'ja' && answer !== 'nein')) {
       return res.status(400).json({ error: 'Ungültige Antwort' });
@@ -105,23 +126,26 @@ app.post('/api/respond', async (req, res) => {
       alternative: answer === 'nein' ? (alternative || '').trim() : null,
       alternativeISO: answer === 'nein' ? (alternativeISO || null) : null,
       message: (message || '').trim(),
+      activity: activity || null,
       createdAt: new Date().toISOString()
     };
 
     const ref = await responsesCollection.add(entry);
 
-    // Push-Benachrichtigung an den Organisator schicken (falls eingerichtet)
     if (process.env.NTFY_TOPIC) {
-      const summary = entry.answer === 'ja'
-        ? 'Ja 🎉'
-        : `Nein${entry.alternative ? ' – Alternative: ' + entry.alternative : ''}`;
-      const body = entry.message ? `${summary}\n💬 ${entry.message}` : summary;
+      const antwort = entry.answer === 'ja' ? 'Ja 🎉' : 'Nein 😔';
+      const lines = [`Antwort: ${antwort}`];
+      if (entry.alternative) lines.push(`Alternative: ${entry.alternative}`);
+      if (entry.activity) lines.push(`Aktivität: ${entry.activity}`);
+      if (entry.message) lines.push(`Gruß: ${entry.message}`);
 
-      fetch(`https://ntfy.sh/${process.env.NTFY_TOPIC}`, {
-        method: 'POST',
-        headers: { 'Title': 'Neue Antwort auf deine Einladung!' },
-        body
-      }).catch(err => console.error('ntfy-Benachrichtigung fehlgeschlagen:', err));
+      sendPush(
+        process.env.NTFY_TOPIC,
+        'Neue Rückmeldung auf deine Einladung!',
+        lines.join('\n')
+      ).catch(err => console.error('Push fehlgeschlagen:', err));
+    } else {
+      console.log('NTFY_TOPIC nicht gesetzt, kein Push');
     }
 
     res.json({ success: true, entry: { id: ref.id, ...entry } });
@@ -142,7 +166,7 @@ app.get('/api/responses', async (req, res) => {
   }
 });
 
-// ---------- Admin-Routen (Passwort nötig) ----------
+// ---------- Admin-Routen ----------
 
 app.post('/api/admin/login', requireAdmin, (req, res) => {
   res.json({ success: true });
@@ -189,7 +213,6 @@ app.listen(PORT, () => {
   console.log(`Server läuft auf Port ${PORT}`);
 });
 
-// Globaler Fehler-Handler (z. B. wenn eine Datei zu groß ist)
 app.use((err, req, res, next) => {
   console.error('Unerwarteter Fehler:', err);
   res.status(500).json({ error: err.message || 'Unbekannter Serverfehler' });
