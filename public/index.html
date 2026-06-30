@@ -11,7 +11,18 @@
 <div class="top-bar"></div>
 <div class="icon-row">🍺 ☀️ 🚲 🎉</div>
 
-<div class="card">
+<!-- Zugangscode-Sperre -->
+<div class="card" id="gate-card">
+  <h1>🔐 Zugang</h1>
+  <p class="sub">Gib die Zahl ein, die du bekommen hast.</p>
+  <label for="gate-input">Zahl (1–100)</label>
+  <input type="number" id="gate-input" min="1" max="100" placeholder="z. B. 42" />
+  <button class="submit-btn" id="gate-btn">Bestätigen</button>
+  <div class="status" id="gate-status"></div>
+</div>
+
+<!-- Hauptinhalt (erst nach richtigem Code sichtbar) -->
+<div class="card" id="main-content" style="display:none;">
   <div class="photo-wrap" id="photo-wrap">
     <span class="placeholder">📷</span>
   </div>
@@ -36,13 +47,15 @@
 
   <div class="status" id="status"></div>
 
+  <button class="submit-btn btn-outline" id="wheel-btn" style="margin-top:14px;">🎡 Aktivität auslosen</button>
+
   <div class="recent" id="recent-box" style="display:none;">
     <h3>Bisherige Rückmeldungen</h3>
     <div class="responses-list" id="responses-list"></div>
   </div>
 </div>
 
-<footer class="admin-link">
+<footer class="admin-link" id="footer-signature" style="display:none;">
   <p class="signature">LG, Stephan</p>
   <a href="admin.html">Admin-Bereich</a>
 </footer>
@@ -55,6 +68,17 @@
     <p id="popup-text"></p>
     <button class="submit-btn" id="popup-add-btn">Zum Kalender hinzufügen</button>
     <button class="submit-btn btn-outline" id="popup-close-btn">Schließen</button>
+  </div>
+</div>
+
+<!-- Glücksrad-Popup -->
+<div class="popup-overlay" id="wheel-overlay">
+  <div class="popup-box">
+    <h2>Eure Aktivität ist...</h2>
+    <div class="wheel-result" id="wheel-result">🎲</div>
+    <p id="wheel-label" style="font-weight:700; min-height:24px;"></p>
+    <button class="submit-btn" id="wheel-spin-btn">🎡 Nochmal drehen</button>
+    <button class="submit-btn btn-outline" id="wheel-close-btn">Schließen</button>
   </div>
 </div>
 
