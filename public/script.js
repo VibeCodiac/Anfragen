@@ -35,6 +35,7 @@ const wheelCloseBtn = document.getElementById('wheel-close-btn');
 let answer = null;
 let eventDateISO = null;
 let lastSubmittedISO = null;
+let selectedActivity = null;
 
 const ACTIVITIES = [
   { emoji: '🚲', label: 'Fahrrad fahren' },
@@ -47,9 +48,9 @@ const ACTIVITIES = [
   { emoji: '🎮', label: 'Zocken' },
   { emoji: '🚶', label: 'Spazieren gehen' },
   { emoji: '☕', label: 'Café-Besuch' },
-  { emoji: '🍽️', label: 'Essen gehen' },
+  { emoji: '🍽', label: 'Essen gehen' },
   { emoji: '🎤', label: 'Karaoke' },
-  { emoji: '🏖️', label: 'An den Strand' },
+  { emoji: '🏖', label: 'An den Strand' },
   { emoji: '🌳', label: 'Picknick' },
   { emoji: '🧗', label: 'Klettern' },
   { emoji: '🎨', label: 'Kreativ werden' },
@@ -59,16 +60,11 @@ const ACTIVITIES = [
   { emoji: '☀️', label: 'Sonnen' }
 ];
 
-// ---------- Zugangscode ----------
-
 async function checkAccess() {
   const code = sessionStorage.getItem('accessCode');
   if (code) {
     const ok = await verifyCode(code);
-    if (ok) {
-      showMainContent();
-      return;
-    }
+    if (ok) { showMainContent(); return; }
   }
 }
 
@@ -81,9 +77,7 @@ async function verifyCode(code) {
     });
     const data = await res.json();
     return !!data.valid;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 function showMainContent() {
@@ -99,12 +93,9 @@ gateBtn.addEventListener('click', async () => {
   if (!code) return;
   gateBtn.disabled = true;
   gateBtn.textContent = 'Prüfe…';
-
   const ok = await verifyCode(code);
-
   gateBtn.disabled = false;
   gateBtn.textContent = 'Bestätigen';
-
   if (ok) {
     sessionStorage.setItem('accessCode', code);
     showMainContent();
@@ -113,8 +104,6 @@ gateBtn.addEventListener('click', async () => {
     gateStatus.className = 'status show err';
   }
 });
-
-// ---------- Datum/Kalender ----------
 
 function formatDateLabel(dateTimeLocal) {
   if (!dateTimeLocal) return '';
@@ -130,38 +119,24 @@ function downloadICS({ title, dateTimeLocal, notes }) {
   if (!dateTimeLocal) return;
   const start = new Date(dateTimeLocal);
   const end = new Date(start.getTime() + 60 * 60 * 1000);
-
   function fmt(d) {
-    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+    return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
   }
-
-  const stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-
+  const stamp = new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
   const ics = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//Lass-uns-was-machen//DE',
-    'CALSCALE:GREGORIAN',
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Lass-uns-was-machen//DE','CALSCALE:GREGORIAN',
     'BEGIN:VEVENT',
     `UID:${Date.now()}@lass-uns-was-machen`,
-    `DTSTAMP:${stamp}`,
-    `DTSTART:${fmt(start)}`,
-    `DTEND:${fmt(end)}`,
-    `SUMMARY:${title}`,
-    notes ? `DESCRIPTION:${notes.replace(/\n/g, '\\n')}` : '',
-    'END:VEVENT',
-    'END:VCALENDAR'
+    `DTSTAMP:${stamp}`,`DTSTART:${fmt(start)}`,`DTEND:${fmt(end)}`,`SUMMARY:${title}`,
+    notes ? `DESCRIPTION:${notes.replace(/\n/g,'\\n')}` : '',
+    'END:VEVENT','END:VCALENDAR'
   ].filter(Boolean).join('\r\n');
-
   const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = 'termin.ics';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  a.href = url; a.download = 'termin.ics';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
 async function loadEvent() {
@@ -170,9 +145,7 @@ async function loadEvent() {
   nameEl.textContent = ev.name || 'Du';
   eventDateISO = ev.dateISO || null;
   dateEl.textContent = eventDateISO ? formatDateLabel(eventDateISO) : 'bald';
-  if (ev.photo) {
-    photoWrap.innerHTML = `<img src="${ev.photo}" alt="Foto" />`;
-  }
+  if (ev.photo) photoWrap.innerHTML = `<img src="${ev.photo}" alt="Foto" />`;
 }
 
 function escapeHtml(str) {
@@ -184,18 +157,14 @@ function escapeHtml(str) {
 async function loadResponses() {
   const res = await fetch('/api/responses');
   const list = await res.json();
-  if (!list.length) {
-    recentBox.style.display = 'none';
-    return;
-  }
+  if (!list.length) { recentBox.style.display = 'none'; return; }
   recentBox.style.display = 'block';
   responsesList.innerHTML = list.slice(-5).reverse().map(r => {
-    const tag = r.answer === 'ja'
-      ? '<span class="tag ja">Ja</span>'
-      : '<span class="tag nein">Nein</span>';
+    const tag = r.answer === 'ja' ? '<span class="tag ja">Ja</span>' : '<span class="tag nein">Nein</span>';
     const alt = r.alternativeISO ? ` – Alternative: <strong>${formatDateLabel(r.alternativeISO)}</strong>` : '';
+    const act = r.activity ? `<br>🎡 ${escapeHtml(r.activity)}` : '';
     const m = r.message ? `<br>💬 ${escapeHtml(r.message)}` : '';
-    return `<div class="recent-item">${tag}${alt}${m}</div>`;
+    return `<div class="recent-item">${tag}${alt}${act}${m}</div>`;
   }).join('');
 }
 
@@ -217,12 +186,9 @@ btnNein.addEventListener('click', () => {
 
 submitBtn.addEventListener('click', async () => {
   if (!answer) return;
-
   submitBtn.disabled = true;
   submitBtn.textContent = 'Wird gesendet…';
-
   const alternativeISO = answer === 'nein' ? altDateInput.value : null;
-
   try {
     const res = await fetch('/api/respond', {
       method: 'POST',
@@ -231,20 +197,16 @@ submitBtn.addEventListener('click', async () => {
         answer,
         alternative: alternativeISO ? formatDateLabel(alternativeISO) : null,
         alternativeISO,
-        message: msg.value
+        message: msg.value,
+        activity: selectedActivity ? `${selectedActivity.emoji} ${selectedActivity.label}` : null
       })
     });
-
     if (!res.ok) throw new Error('Fehler beim Senden');
-
     statusEl.textContent = '✅ Danke für deine Antwort!';
     statusEl.className = 'status show ok';
-
     lastSubmittedISO = answer === 'ja' ? eventDateISO : alternativeISO;
     openCalendarPopup(lastSubmittedISO);
-
-    msg.value = '';
-    altDateInput.value = '';
+    msg.value = ''; altDateInput.value = '';
     loadResponses();
   } catch (e) {
     statusEl.textContent = '❌ Da ist etwas schiefgelaufen. Bitte erneut versuchen.';
@@ -267,26 +229,16 @@ function openCalendarPopup(dateISO) {
 }
 
 popupAddBtn.addEventListener('click', () => {
-  downloadICS({
-    title: `Treffen mit ${ORGANIZER_NAME}`,
-    dateTimeLocal: lastSubmittedISO,
-    notes: ''
-  });
+  downloadICS({ title: `Treffen mit ${ORGANIZER_NAME}`, dateTimeLocal: lastSubmittedISO, notes: '' });
   popupOverlay.classList.remove('show');
 });
-
 popupCloseBtn.addEventListener('click', () => popupOverlay.classList.remove('show'));
-popupOverlay.addEventListener('click', (e) => {
-  if (e.target === popupOverlay) popupOverlay.classList.remove('show');
-});
-
-// ---------- Glücksrad ----------
+popupOverlay.addEventListener('click', (e) => { if (e.target === popupOverlay) popupOverlay.classList.remove('show'); });
 
 function spinWheel() {
   wheelResult.classList.add('spinning');
   wheelLabel.textContent = '';
   wheelSpinBtn.disabled = true;
-
   let ticks = 0;
   const totalTicks = 18;
   const interval = setInterval(() => {
@@ -300,19 +252,14 @@ function spinWheel() {
       wheelLabel.textContent = final.label;
       wheelResult.classList.remove('spinning');
       wheelSpinBtn.disabled = false;
+      selectedActivity = final;
     }
   }, 90);
 }
 
-wheelBtn.addEventListener('click', () => {
-  wheelOverlay.classList.add('show');
-  spinWheel();
-});
-
+wheelBtn.addEventListener('click', () => { wheelOverlay.classList.add('show'); spinWheel(); });
 wheelSpinBtn.addEventListener('click', spinWheel);
 wheelCloseBtn.addEventListener('click', () => wheelOverlay.classList.remove('show'));
-wheelOverlay.addEventListener('click', (e) => {
-  if (e.target === wheelOverlay) wheelOverlay.classList.remove('show');
-});
+wheelOverlay.addEventListener('click', (e) => { if (e.target === wheelOverlay) wheelOverlay.classList.remove('show'); });
 
 checkAccess();
