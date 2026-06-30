@@ -53,6 +53,38 @@ app.get('/api/event', async (req, res) => {
   try {
     const snap = await eventDoc.get();
     const data = snap.exists ? snap.data() : { name: 'Du', dateISO: '', photo: null };
+    const { accessCode, ...publicData } = data; // Zugangscode nie öffentlich mitschicken
+    res.json(publicData);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Fehler beim Laden' });
+  }
+});
+
+app.post('/api/verify-code', async (req, res) => {
+  try {
+    const { code } = req.body;
+    const snap = await eventDoc.get();
+    const data = snap.exists ? snap.data() : {};
+    const correct = data.accessCode;
+
+    if (correct === undefined || correct === null || correct === '') {
+      // Kein Code gesetzt -> jeder darf rein
+      return res.json({ valid: true });
+    }
+
+    const valid = String(code).trim() === String(correct).trim();
+    res.json({ valid });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Fehler bei der Prüfung' });
+  }
+});
+
+app.get('/api/admin/event', requireAdmin, async (req, res) => {
+  try {
+    const snap = await eventDoc.get();
+    const data = snap.exists ? snap.data() : {};
     res.json(data);
   } catch (e) {
     console.error(e);
@@ -137,6 +169,9 @@ app.post('/api/admin/upload', requireAdmin, upload.single('photo'), async (req, 
 
     if (req.body.name) updated.name = req.body.name;
     if (req.body.dateISO) updated.dateISO = req.body.dateISO;
+    if (req.body.accessCode !== undefined && req.body.accessCode !== '') {
+      updated.accessCode = req.body.accessCode;
+    }
     if (req.file) {
       const base64 = req.file.buffer.toString('base64');
       updated.photo = `data:${req.file.mimetype};base64,${base64}`;
