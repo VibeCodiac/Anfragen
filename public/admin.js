@@ -7,6 +7,7 @@ const loginStatus = document.getElementById('login-status');
 const upName = document.getElementById('up-name');
 const upDate = document.getElementById('up-date');
 const upPhoto = document.getElementById('up-photo');
+const upCode = document.getElementById('up-code');
 const uploadBtn = document.getElementById('upload-btn');
 const uploadStatus = document.getElementById('upload-status');
 const calBtn = document.getElementById('cal-btn');
@@ -92,10 +93,13 @@ loginBtn.addEventListener('click', async () => {
 });
 
 async function loadCurrentEvent() {
-  const res = await fetch('/api/event');
+  const res = await fetch('/api/admin/event', {
+    headers: { 'x-admin-password': adminPassword }
+  });
   const ev = await res.json();
   upName.value = ev.name || '';
   upDate.value = ev.dateISO || '';
+  upCode.value = ev.accessCode || '';
 }
 
 function resizeImage(file, maxWidth = 1000, quality = 0.8) {
@@ -127,6 +131,7 @@ uploadBtn.addEventListener('click', async () => {
   formData.append('password', adminPassword);
   if (upName.value) formData.append('name', upName.value);
   if (upDate.value) formData.append('dateISO', upDate.value);
+  if (upCode.value !== '') formData.append('accessCode', upCode.value);
 
   uploadBtn.disabled = true;
   uploadBtn.textContent = 'Speichert…';
@@ -188,7 +193,11 @@ async function loadAdminResponses() {
 
   adminResponses.querySelectorAll('.cal-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      downloadICS({ title: 'Alternativtermin', dateTimeLocal: btn.dataset.iso, notes: '' });
+      downloadICS({
+        title: `Treffen mit ${upName.value || 'Person'}`,
+        dateTimeLocal: btn.dataset.iso,
+        notes: ''
+      });
     });
   });
 }
