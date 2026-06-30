@@ -183,12 +183,13 @@ async function loadAdminResponses() {
       ? '<span class="tag ja">Ja</span>'
       : '<span class="tag nein">Nein</span>';
     const alt = r.alternativeISO ? ` – Alternative: <strong>${formatDateLabel(r.alternativeISO)}</strong>` : '';
+    const act = r.activity ? `<br>🎡 Aktivität: <strong>${escapeHtml(r.activity)}</strong>` : '';
     const m = r.message ? `<br>💬 ${escapeHtml(r.message)}` : '';
     const time = new Date(r.createdAt).toLocaleString('de-DE');
     const calBtnHtml = r.alternativeISO
       ? `<div><button class="cal-btn" data-iso="${r.alternativeISO}">📅 In Kalender übernehmen</button></div>`
       : '';
-    return `<div class="recent-item">${tag}${alt}${m}<br><small>${time}</small>${calBtnHtml}</div>`;
+    return `<div class="recent-item">${tag}${alt}${act}${m}<br><small>${time}</small>${calBtnHtml}</div>`;
   }).join('');
 
   adminResponses.querySelectorAll('.cal-btn').forEach(btn => {
