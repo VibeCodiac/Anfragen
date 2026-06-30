@@ -291,3 +291,16 @@ footer.admin-link a {
 .popup-box h2 { font-size: 1.2rem; margin: 0 0 8px; }
 .popup-box p { font-size: 0.9rem; color: var(--muted); margin: 0 0 18px; }
 .popup-box button { margin-bottom: 10px; }
+.wheel-result {
+  font-size: 4.5rem;
+  margin: 10px 0 6px;
+  transition: transform 0.1s ease;
+}
+.wheel-result.spinning {
+  animation: spin-pulse 0.15s infinite;
+}
+@keyframes spin-pulse {
+  0% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.15) rotate(8deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
