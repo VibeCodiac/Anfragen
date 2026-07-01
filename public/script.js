@@ -1,5 +1,9 @@
 const ORGANIZER_NAME = 'Stephan';
 
+// ntfy-Einstellungen – hier deine echten Werte eintragen
+const NTFY_TOPIC = 'DEIN_NTFY_THEMA';  // z. B. 'stephan-einladung-7f3k29x'
+const NTFY_TOKEN = 'DEIN_NTFY_TOKEN';  // z. B. 'tk_abc123...'
+
 const gateCard = document.getElementById('gate-card');
 const gateInput = document.getElementById('gate-input');
 const gateBtn = document.getElementById('gate-btn');
@@ -48,9 +52,9 @@ const ACTIVITIES = [
   { emoji: '🎮', label: 'Zocken' },
   { emoji: '🚶', label: 'Spazieren gehen' },
   { emoji: '☕', label: 'Café-Besuch' },
-  { emoji: '🍽', label: 'Essen gehen' },
+  { emoji: '🍽️', label: 'Essen gehen' },
   { emoji: '🎤', label: 'Karaoke' },
-  { emoji: '🏖', label: 'An den Strand' },
+  { emoji: '🏖️', label: 'An den Strand' },
   { emoji: '🌳', label: 'Picknick' },
   { emoji: '🧗', label: 'Klettern' },
   { emoji: '🎨', label: 'Kreativ werden' },
@@ -59,6 +63,8 @@ const ACTIVITIES = [
   { emoji: '🎲', label: 'Spieleabend' },
   { emoji: '☀️', label: 'Sonnen' }
 ];
+
+// ---------- Zugangscode ----------
 
 async function checkAccess() {
   const code = sessionStorage.getItem('accessCode');
@@ -105,6 +111,8 @@ gateBtn.addEventListener('click', async () => {
   }
 });
 
+// ---------- Datum/Kalender ----------
+
 function formatDateLabel(dateTimeLocal) {
   if (!dateTimeLocal) return '';
   const d = new Date(dateTimeLocal);
@@ -126,8 +134,8 @@ function downloadICS({ title, dateTimeLocal, notes }) {
   const ics = [
     'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Lass-uns-was-machen//DE','CALSCALE:GREGORIAN',
     'BEGIN:VEVENT',
-    `UID:${Date.now()}@lass-uns-was-machen`,
-    `DTSTAMP:${stamp}`,`DTSTART:${fmt(start)}`,`DTEND:${fmt(end)}`,`SUMMARY:${title}`,
+    `UID:${Date.now()}@lass-uns-was-machen`,`DTSTAMP:${stamp}`,
+    `DTSTART:${fmt(start)}`,`DTEND:${fmt(end)}`,`SUMMARY:${title}`,
     notes ? `DESCRIPTION:${notes.replace(/\n/g,'\\n')}` : '',
     'END:VEVENT','END:VCALENDAR'
   ].filter(Boolean).join('\r\n');
@@ -202,6 +210,19 @@ submitBtn.addEventListener('click', async () => {
       })
     });
     if (!res.ok) throw new Error('Fehler beim Senden');
+
+    // Push direkt vom Browser – umgeht das Render-IP-Limit
+    const antwort = answer === 'ja' ? 'Ja' : 'Nein';
+    const lines = [`Antwort: ${antwort}`];
+    if (alternativeISO) lines.push(`Alt: ${formatDateLabel(alternativeISO)}`);
+    if (selectedActivity) lines.push(`Akt: ${selectedActivity.emoji} ${selectedActivity.label}`);
+    if (msg.value.trim()) lines.push(`Gruss: ${msg.value.trim()}`);
+    fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + NTFY_TOKEN },
+      body: lines.join('\n')
+    }).catch(() => {});
+
     statusEl.textContent = '✅ Danke für deine Antwort!';
     statusEl.className = 'status show ok';
     lastSubmittedISO = answer === 'ja' ? eventDateISO : alternativeISO;
@@ -234,6 +255,8 @@ popupAddBtn.addEventListener('click', () => {
 });
 popupCloseBtn.addEventListener('click', () => popupOverlay.classList.remove('show'));
 popupOverlay.addEventListener('click', (e) => { if (e.target === popupOverlay) popupOverlay.classList.remove('show'); });
+
+// ---------- Glücksrad ----------
 
 function spinWheel() {
   wheelResult.classList.add('spinning');
