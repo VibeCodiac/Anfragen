@@ -11,6 +11,8 @@ const upCode = document.getElementById('up-code');
 const uploadBtn = document.getElementById('upload-btn');
 const uploadStatus = document.getElementById('upload-status');
 const calBtn = document.getElementById('cal-btn');
+const testPushBtn = document.getElementById('test-push-btn');
+const testPushStatus = document.getElementById('test-push-status');
 
 const adminResponses = document.getElementById('admin-responses');
 const resetBtn = document.getElementById('reset-btn');
@@ -38,38 +40,24 @@ function downloadICS({ title, dateTimeLocal, notes }) {
   if (!dateTimeLocal) return;
   const start = new Date(dateTimeLocal);
   const end = new Date(start.getTime() + 60 * 60 * 1000);
-
   function fmt(d) {
     return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
   }
-
   const stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-
   const ics = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//Lass-uns-was-machen//DE',
-    'CALSCALE:GREGORIAN',
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Lass-uns-was-machen//DE', 'CALSCALE:GREGORIAN',
     'BEGIN:VEVENT',
-    `UID:${Date.now()}@lass-uns-was-machen`,
-    `DTSTAMP:${stamp}`,
-    `DTSTART:${fmt(start)}`,
-    `DTEND:${fmt(end)}`,
-    `SUMMARY:${title}`,
+    `UID:${Date.now()}@lass-uns-was-machen`, `DTSTAMP:${stamp}`,
+    `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`, `SUMMARY:${title}`,
     notes ? `DESCRIPTION:${notes.replace(/\n/g, '\\n')}` : '',
-    'END:VEVENT',
-    'END:VCALENDAR'
+    'END:VEVENT', 'END:VCALENDAR'
   ].filter(Boolean).join('\r\n');
-
   const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = 'termin.ics';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  a.href = url; a.download = 'termin.ics';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
 loginBtn.addEventListener('click', async () => {
@@ -79,7 +67,6 @@ loginBtn.addEventListener('click', async () => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ password: pw })
   });
-
   if (res.ok) {
     adminPassword = pw;
     loginCard.classList.add('hidden');
@@ -113,12 +100,10 @@ function resizeImage(file, maxWidth = 1000, quality = 0.8) {
       const canvas = document.createElement('canvas');
       canvas.width = img.width * scale;
       canvas.height = img.height * scale;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
       canvas.toBlob(
         (blob) => resolve(new File([blob], file.name, { type: 'image/jpeg' })),
-        'image/jpeg',
-        quality
+        'image/jpeg', quality
       );
     };
     img.onerror = reject;
@@ -132,16 +117,13 @@ uploadBtn.addEventListener('click', async () => {
   if (upName.value) formData.append('name', upName.value);
   if (upDate.value) formData.append('dateISO', upDate.value);
   if (upCode.value !== '') formData.append('accessCode', upCode.value);
-
   uploadBtn.disabled = true;
   uploadBtn.textContent = 'Speichert…';
-
   try {
     if (upPhoto.files[0]) {
       const resized = await resizeImage(upPhoto.files[0]);
       formData.append('photo', resized);
     }
-
     const res = await fetch('/api/admin/upload', {
       method: 'POST',
       headers: { 'x-admin-password': adminPassword },
@@ -164,11 +146,33 @@ uploadBtn.addEventListener('click', async () => {
 
 calBtn.addEventListener('click', () => {
   if (!upDate.value) return;
-  downloadICS({
-    title: `Treffen mit ${upName.value || 'Person'}`,
-    dateTimeLocal: upDate.value,
-    notes: ''
-  });
+  downloadICS({ title: `Treffen mit ${upName.value || 'Person'}`, dateTimeLocal: upDate.value, notes: '' });
+});
+
+testPushBtn.addEventListener('click', async () => {
+  testPushBtn.disabled = true;
+  testPushBtn.textContent = 'Sendet…';
+  try {
+    const res = await fetch('/api/admin/test-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+      body: JSON.stringify({})
+    });
+    const data = await res.json();
+    if (res.ok) {
+      testPushStatus.textContent = `✅ Push gesendet! ntfy-Status: ${data.ntfyStatus}`;
+      testPushStatus.className = 'status show ok';
+    } else {
+      testPushStatus.textContent = `❌ Fehler: ${data.error}`;
+      testPushStatus.className = 'status show err';
+    }
+  } catch (e) {
+    testPushStatus.textContent = `❌ Netzwerkfehler: ${e.message}`;
+    testPushStatus.className = 'status show err';
+  } finally {
+    testPushBtn.disabled = false;
+    testPushBtn.textContent = '📲 Test-Push senden';
+  }
 });
 
 async function loadAdminResponses() {
@@ -179,9 +183,7 @@ async function loadAdminResponses() {
     return;
   }
   adminResponses.innerHTML = list.slice().reverse().map(r => {
-    const tag = r.answer === 'ja'
-      ? '<span class="tag ja">Ja</span>'
-      : '<span class="tag nein">Nein</span>';
+    const tag = r.answer === 'ja' ? '<span class="tag ja">Ja</span>' : '<span class="tag nein">Nein</span>';
     const alt = r.alternativeISO ? ` – Alternative: <strong>${formatDateLabel(r.alternativeISO)}</strong>` : '';
     const act = r.activity ? `<br>🎡 Aktivität: <strong>${escapeHtml(r.activity)}</strong>` : '';
     const m = r.message ? `<br>💬 ${escapeHtml(r.message)}` : '';
@@ -194,27 +196,18 @@ async function loadAdminResponses() {
 
   adminResponses.querySelectorAll('.cal-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      downloadICS({
-        title: `Treffen mit ${upName.value || 'Person'}`,
-        dateTimeLocal: btn.dataset.iso,
-        notes: ''
-      });
+      downloadICS({ title: `Treffen mit ${upName.value || 'Person'}`, dateTimeLocal: btn.dataset.iso, notes: '' });
     });
   });
 }
 
 resetBtn.addEventListener('click', async () => {
   if (!confirm('Wirklich alle Rückmeldungen löschen?')) return;
-
   const res = await fetch('/api/admin/reset', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-admin-password': adminPassword
-    },
+    headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
     body: JSON.stringify({})
   });
-
   if (res.ok) {
     resetStatus.textContent = '✅ Zurückgesetzt!';
     resetStatus.className = 'status show ok';
