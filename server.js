@@ -47,16 +47,20 @@ function requireAdmin(req, res, next) {
 function sendPush(topic, title, body) {
   return new Promise((resolve, reject) => {
     const bodyBuffer = Buffer.from(body, 'utf8');
+    const headers = {
+      'Title': title,
+      'Content-Type': 'text/plain',
+      'Content-Length': bodyBuffer.length
+    };
+    if (process.env.NTFY_TOKEN) {
+      headers['Authorization'] = 'Bearer ' + process.env.NTFY_TOKEN;
+    }
     const options = {
       hostname: 'ntfy.sh',
       port: 443,
       path: '/' + topic,
       method: 'POST',
-      headers: {
-        'Title': title,
-        'Content-Type': 'text/plain',
-        'Content-Length': bodyBuffer.length
-      }
+      headers
     };
     const req = https.request(options, (res) => {
       console.log('ntfy Status:', res.statusCode);
