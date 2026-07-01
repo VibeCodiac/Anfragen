@@ -136,12 +136,12 @@ app.post('/api/respond', async (req, res) => {
       const antwort = entry.answer === 'ja' ? 'Ja 🎉' : 'Nein 😔';
       const lines = [`Antwort: ${antwort}`];
       if (entry.alternative) lines.push(`Alternative: ${entry.alternative}`);
-      if (entry.activity) lines.push(`Aktivität: ${entry.activity}`);
-      if (entry.message) lines.push(`Gruß: ${entry.message}`);
+      if (entry.activity) lines.push(`Aktivitaet: ${entry.activity}`);
+      if (entry.message) lines.push(`Gruss: ${entry.message}`);
 
       sendPush(
         process.env.NTFY_TOPIC,
-        'Neue Rückmeldung auf deine Einladung!',
+        'Neue Rueckmeldung auf deine Einladung',
         lines.join('\n')
       ).catch(err => console.error('Push fehlgeschlagen:', err));
     } else {
@@ -175,8 +175,8 @@ app.post('/api/admin/test-push', requireAdmin, async (req, res) => {
   try {
     const status = await sendPush(
       process.env.NTFY_TOPIC,
-      'Test von deiner Einladungsseite 🎉',
-      'Push funktioniert! Antwort: Ja 🎉\nAktivität: 🚲 Fahrrad fahren\nGruß: Alles klar!'
+      'Test von deiner Einladungsseite',
+      'Push funktioniert!\nAntwort: Ja 🎉\nAktivitaet: 🚲 Fahrrad fahren\nGruss: Alles klar!'
     );
     res.json({ success: true, ntfyStatus: status });
   } catch (e) {
