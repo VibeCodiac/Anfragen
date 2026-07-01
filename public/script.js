@@ -1,7 +1,7 @@
 const ORGANIZER_NAME = 'Stephan';
 
 // ntfy-Einstellungen – hier deine echten Werte eintragen
-const NTFY_TOPIC = 'was_machen1';  // z. B. 'stephan-einladung-7f3k29x'
+const NTFY_TOPIC = 'bier_fur_vier';  // z. B. 'stephan-einladung-7f3k29x'
 const NTFY_TOKEN = 'tk_pnxmh4thdw1e9m5ui9sctxvms8lgf';  // z. B. 'tk_abc123...'
 
 const gateCard = document.getElementById('gate-card');
