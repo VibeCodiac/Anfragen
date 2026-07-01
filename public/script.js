@@ -1,8 +1,8 @@
 const ORGANIZER_NAME = 'Stephan';
 
 // ntfy-Einstellungen – hier deine echten Werte eintragen
-const NTFY_TOPIC = 'bier_fur_vier';  // z. B. 'stephan-einladung-7f3k29x'
-const NTFY_TOKEN = 'tk_pnxmh4thdw1e9m5ui9sctxvms8lgf';  // z. B. 'tk_abc123...'
+const NTFY_TOPIC = 'bier_fur_vier';  // z. B. 'stephan-bier-runde-42'
+const NTFY_TOKEN = 'tk_pnxmh4thdw1e9m5ui9sctxvms8lgf';           // dein Token von ntfy.sh/account
 
 const gateCard = document.getElementById('gate-card');
 const gateInput = document.getElementById('gate-input');
@@ -64,8 +64,6 @@ const ACTIVITIES = [
   { emoji: '☀️', label: 'Sonnen' }
 ];
 
-// ---------- Zugangscode ----------
-
 async function checkAccess() {
   const code = sessionStorage.getItem('accessCode');
   if (code) {
@@ -110,8 +108,6 @@ gateBtn.addEventListener('click', async () => {
     gateStatus.className = 'status show err';
   }
 });
-
-// ---------- Datum/Kalender ----------
 
 function formatDateLabel(dateTimeLocal) {
   if (!dateTimeLocal) return '';
@@ -211,7 +207,7 @@ submitBtn.addEventListener('click', async () => {
     });
     if (!res.ok) throw new Error('Fehler beim Senden');
 
-    // Push direkt vom Browser – umgeht das Render-IP-Limit
+    // Push direkt vom Browser
     const antwort = answer === 'ja' ? 'Ja' : 'Nein';
     const lines = [`Antwort: ${antwort}`];
     if (alternativeISO) lines.push(`Alt: ${formatDateLabel(alternativeISO)}`);
@@ -255,8 +251,6 @@ popupAddBtn.addEventListener('click', () => {
 });
 popupCloseBtn.addEventListener('click', () => popupOverlay.classList.remove('show'));
 popupOverlay.addEventListener('click', (e) => { if (e.target === popupOverlay) popupOverlay.classList.remove('show'); });
-
-// ---------- Glücksrad ----------
 
 function spinWheel() {
   wheelResult.classList.add('spinning');
