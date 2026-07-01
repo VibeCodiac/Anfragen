@@ -1,3 +1,7 @@
+// ntfy-Einstellungen – gleiche Werte wie in script.js
+const NTFY_TOPIC = 'bier_fur_vier';  // z. B. 'stephan-bier-runde-42'
+const NTFY_TOKEN = 'tk_pnxmh4thdw1e9m5ui9sctxvms8lgf';           // dein Token von ntfy.sh/account
+
 const loginCard = document.getElementById('login-card');
 const adminCard = document.getElementById('admin-card');
 const pwInput = document.getElementById('pw');
@@ -41,16 +45,16 @@ function downloadICS({ title, dateTimeLocal, notes }) {
   const start = new Date(dateTimeLocal);
   const end = new Date(start.getTime() + 60 * 60 * 1000);
   function fmt(d) {
-    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+    return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
   }
-  const stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const stamp = new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
   const ics = [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Lass-uns-was-machen//DE', 'CALSCALE:GREGORIAN',
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Lass-uns-was-machen//DE','CALSCALE:GREGORIAN',
     'BEGIN:VEVENT',
-    `UID:${Date.now()}@lass-uns-was-machen`, `DTSTAMP:${stamp}`,
-    `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`, `SUMMARY:${title}`,
-    notes ? `DESCRIPTION:${notes.replace(/\n/g, '\\n')}` : '',
-    'END:VEVENT', 'END:VCALENDAR'
+    `UID:${Date.now()}@lass-uns-was-machen`,`DTSTAMP:${stamp}`,
+    `DTSTART:${fmt(start)}`,`DTEND:${fmt(end)}`,`SUMMARY:${title}`,
+    notes ? `DESCRIPTION:${notes.replace(/\n/g,'\\n')}` : '',
+    'END:VEVENT','END:VCALENDAR'
   ].filter(Boolean).join('\r\n');
   const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -153,17 +157,16 @@ testPushBtn.addEventListener('click', async () => {
   testPushBtn.disabled = true;
   testPushBtn.textContent = 'Sendet…';
   try {
-    const res = await fetch('/api/admin/test-push', {
+    const res = await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
-      body: JSON.stringify({})
+      headers: { 'Authorization': 'Bearer ' + NTFY_TOKEN },
+      body: 'Test: Push funktioniert!'
     });
-    const data = await res.json();
     if (res.ok) {
-      testPushStatus.textContent = `✅ Push gesendet! ntfy-Status: ${data.ntfyStatus}`;
+      testPushStatus.textContent = '✅ Test-Push gesendet!';
       testPushStatus.className = 'status show ok';
     } else {
-      testPushStatus.textContent = `❌ Fehler: ${data.error}`;
+      testPushStatus.textContent = `❌ Fehler: Status ${res.status}`;
       testPushStatus.className = 'status show err';
     }
   } catch (e) {
