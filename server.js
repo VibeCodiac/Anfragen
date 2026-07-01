@@ -168,6 +168,23 @@ app.get('/api/responses', async (req, res) => {
 
 // ---------- Admin-Routen ----------
 
+app.post('/api/admin/test-push', requireAdmin, async (req, res) => {
+  if (!process.env.NTFY_TOPIC) {
+    return res.status(400).json({ error: 'NTFY_TOPIC nicht gesetzt' });
+  }
+  try {
+    const status = await sendPush(
+      process.env.NTFY_TOPIC,
+      'Test von deiner Einladungsseite 🎉',
+      'Push funktioniert! Antwort: Ja 🎉\nAktivität: 🚲 Fahrrad fahren\nGruß: Alles klar!'
+    );
+    res.json({ success: true, ntfyStatus: status });
+  } catch (e) {
+    console.error('Test-Push fehlgeschlagen:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/admin/login', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
